@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diabetes AI Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-box" id="chat-box"></div>
+        <div class="input-box">
+            <input type="text" id="user-input" placeholder="Type your message here...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function sendMessage() {
+            const userInput = $('#user-input').val();
+            if (userInput.trim() === '') return;
+
+            $('#chat-box').append('<div class="user-message">' + userInput + '</div>');
+            $('#user-input').val('');
+
+            $.ajax({
+                type: 'POST',
+                url: '/get_response',
+                contentType: 'application/json',
+                data: JSON.stringify({ message: userInput }),
+                success: function(response) {
+                    $('#chat-box').append('<div class="bot-message">' + response.response + '</div>');
+                },
+                error: function() {
+                    $('#chat-box').append('<div class="bot-message">Sorry, an error occurred.</div>');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
