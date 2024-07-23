@@ -1,10 +1,16 @@
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, session
+from flask_session import Session
 from sentence_transformers import SentenceTransformer, util
 import pandas as pd
 import openai
 
 # Initialize the Flask application
 app = Flask(__name__)
+
+# Configure session to use filesystem (instead of signed cookies)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SECRET_KEY'] = 'supersecretkey'
+Session(app)
 
 # Load your faqs dataset
 file_path = 'Gestational Diabetes Mellitus Screening.xlsx'
@@ -33,16 +39,23 @@ def retrieve_answer(question, top_k=1):
 # OpenAI API key
 openai.api_key = 'API KEY'
 
-# Function to perform RAG
+# Function to perform RAG with memory
 def perform_rag(question):
+    # Retrieve the conversation history from the session
+    conversation_history = session.get('conversation_history', [])
+
     # Retrieving relevant context (answer) based on the question
     retrieved_question, context = retrieve_answer(question)
 
     if context:
+        # Include previous context from conversation history
+        history_context = " ".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
+
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are Diabetes AI Advisor, an independent assistant providing information and guidance on diabetes."},
+                {"role": "user", "content": f"Previous context: {history_context}"},
                 {"role": "user", "content": f"Context: {context}"},
                 {"role": "user", "content": f"Question: {question}"},
             ],
@@ -52,6 +65,12 @@ def perform_rag(question):
             stop=None
         )
         generated = response['choices'][0]['message']['content'].strip()
+
+        # Update the conversation history
+        conversation_history.append({"role": "user", "content": question})
+        conversation_history.append({"role": "assistant", "content": generated})
+        session['conversation_history'] = conversation_history
+
         return generated
     else:
         return "Sorry, I don't have information on that question."
